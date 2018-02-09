@@ -45,12 +45,12 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 
 //#define DEBUG
 //#define ERROR
-#define w1	0.6
-#define w2	0.4
-#define u	0.5
-#define t 	0.05
-#define rr	0
-#define yit	0.05
+#define W1	0.6
+#define W2	0.4
+#define U	0.5
+#define TRUSTUPDATEINTERVAL 	0.05
+#define RR	0
+#define YIT	0.05
 
 
 #ifdef DEBUG
@@ -249,7 +249,7 @@ UpdateTrust ::expire(Event *e){
 	//邻居节点信息定期更新
 	agent->nr_trustupdate();
 	//agent->nr_print(0);
-	agent->trustimer.resched((double)t);
+	agent->trustimer.resched((double)TRUSTUPDATEINTERVAL);
 }
 void
 HelloCount::expire(Event *e){
@@ -884,7 +884,7 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
 
  rt = rtable.rt_lookup(rq->rq_dst);
 
- rq->ct=rq->ct+this->ext*((CURRENT_TIME-rq->delay_time)+yit);
+ rq->ct=rq->ct+this->ext*((CURRENT_TIME-rq->delay_time)+YIT);
  rq->delay_time=CURRENT_TIME;
 
  // First check if I am the destination ..
@@ -957,7 +957,7 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
 	 ih->saddr() = index;
    WAODV_Neighbor *tmp =nbhead.lh_first;
    while (tmp!=NULL){
-	   if (tmp->trust_info.trust>rr && tmp->nb_addr!=prehop){
+	   if (tmp->trust_info.trust>RR && tmp->nb_addr!=prehop){
 		   rq->trust*=tmp->trust_info.trust;
    ih->daddr() = tmp->nb_addr;
    rq->rq_hop_count += 1;
@@ -1360,7 +1360,7 @@ waodv_rt_entry *rt = rtable.rt_lookup(dst);
  rq->delay_time=CURRENT_TIME;
  WAODV_Neighbor *tmp =nbhead.lh_first;
  while (tmp!=NULL){
-	 if (tmp->trust_info.trust>rr){
+	 if (tmp->trust_info.trust>RR){
 		 rq->trust=tmp->trust_info.trust;
 		 ih->daddr()=tmp->nb_addr;
 		/* struct list *l = (struct list *)malloc(sizeof (struct list));
@@ -1470,16 +1470,12 @@ struct hdr_waodv_reply *rh = HDR_WAODV_REPLY(p);
 #ifdef DEBUG
 fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().clock());
 #endif // DEBUG
-//建立邻居节点信息
- nr_listbuild();
  rh->rp_type = WAODVTYPE_HELLO;
  //rh->rp_flags = 0x00;
  rh->rp_hop_count = 1;
  rh->rp_dst = index;
  rh->rp_dst_seqno = seqno;
  rh->rp_lifetime = (1 + ALLOWED_HELLO_LOSS) * HELLO_INTERVAL;
- rh->nrlist=this->nrlist;
-
  // ch->uid() = 0;
  ch->ptype() = PT_WAODV;
  ch->size() = IP_HDR_LEN + rh->size();
@@ -1507,8 +1503,6 @@ struct hdr_waodv_reply *rh = HDR_WAODV_REPLY(p);
 #ifdef DEBUG
 fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().clock());
 #endif // DEBUG
-//建立邻居节点信息
- //nr_listbuild();
  rh->rp_type = WAODVTYPE_HELLO;
  //rh->rp_flags = 0x00;
  rh->rp_hop_count = 1;
@@ -1675,12 +1669,18 @@ WAODV::nr_add(const Packet *p){
 	nr->forwardto++;
 	//std::cout<<index<<" "<<nr->nr_nb_id<<"-------------------------- "<<std::endl;
 }
-
+/**
+ * 更新函数
+ */
 void
 WAODV::nr_update(const Packet *p){
 	struct hdr_cmn *ch = HDR_CMN(p);
     struct hdr_ip *ih = HDR_IP(p);
     NR * r=nr_head;
+    /**
+     * 根据监听到的数据包ID，查找是否是自己发出去的包，如果是自己发出去的包，则邻居正确的转发了该包
+     * 正确转发包字段+1
+     */
     while (r!=NULL){
     	if (r->nr_nb_id == ch->prev_hop_)
     		break;
@@ -1690,6 +1690,9 @@ WAODV::nr_update(const Packet *p){
     r->recvfrom++;
     }
 }
+/**
+ *打印统计的转发信息
+ */
 void
 WAODV::nr_print(const Packet *p){
 
@@ -1701,48 +1704,15 @@ WAODV::nr_print(const Packet *p){
 }
 
 void
-WAODV:: nr_listbuild(){
-	    if (nrlist!=NULL)
-	    	nr_listfree(nrlist);
-		WAODV_Neighbor *nb = nbhead.lh_first;
-		 for(; nb; nb = nb->nb_link.le_next){
-			 nr_trust *p = new nr_trust();
-			 p->addr = nb->getnbaddr();
-			 p->trust =nb->trust_info.trust;
-			 p->next = nrlist;
-			 nrlist=p;
-		 }
-}
-void
-WAODV::nr_listcopy(struct hdr_waodv_reply *rp,nr_trust *list ){
-	nr_trust *ls = rp->nrlist;
-	if (list!=NULL)
-		nr_listfree(list);
-	while (ls!=NULL){
-		 nr_trust *p = new nr_trust();
-		 p->addr = ls->addr;
-		 p->trust =ls->trust;
-		 p->next = list;
-		 list=p;
-		 ls =ls->next;
-	}
-}
-void
-WAODV::nr_listfree(nr_trust * list){
-	while(list!=NULL){
-		nr_trust *p=list->next;
-		delete list;
-		list=p;
-	}
-}
-void
 WAODV::nr_trustupdate(){
 	WAODV_Neighbor *nb =nbhead.lh_first;
 		struct it {
 			float sum;
 			float num;
 		};
+		//直接信任
 	    float d_trust=0.;
+	    //间接信任
 	    float in_trust =0.;
 	    struct it *nraddr[60];
 	    //初始化
@@ -1789,7 +1759,7 @@ WAODV::nr_trustupdate(){
 	    nb=nb->nb_link.le_next;
 	    }
 
-//
+
 	 //  std::cout<<"null "<<CURRENT_TIME<<std::endl;
 
 	    nb=nbhead.lh_first;
@@ -1805,8 +1775,8 @@ WAODV::nr_trustupdate(){
 	        //间接信任为0
 	         in_trust = tmp->sum/tmp->num;
 	    	}
-	    	trust_t = w1*d_trust+w2*in_trust;
-	    	nb->trust_info.trust= u*trust+(1-u)*trust_t;
+	    	trust_t = W1*d_trust+W2*in_trust;
+	    	nb->trust_info.trust= U*trust+(1-U)*trust_t;
 	   std::cout <<"t "<<index<<"-->"<< nb->nb_addr<<" "<<d_trust<<" "<< in_trust<<" "<<nb->trust_info.trust<<" "<<trust_t<<std::endl;
     	nb=nb->nb_link.le_next;
 	    }

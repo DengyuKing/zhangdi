@@ -50,7 +50,6 @@ struct trust_info{
 	float in_trust;
 	int current_time;
 	int lastupdate_time;
-	nr_trust * nrlist;
 };
 
 struct qos_info{
@@ -72,7 +71,6 @@ class WAODV_Neighbor {
         trust_info.trust=1;
         trust_info.d_trust=0.5;
         trust_info.in_trust=0.5;
-        trust_info.nrlist=NULL;
         nb=NULL;
         }
         nsaddr_t getnbaddr();

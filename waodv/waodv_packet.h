@@ -70,11 +70,6 @@ struct hdr_waodv {
 		return (hdr_waodv*) p->access(offset_);
 	}
 };
-struct list{
-	nsaddr_t addr;
-	struct list * next;
-};
-
 struct hdr_waodv_request {
         u_int8_t        rq_type;	// Packet Type
         u_int8_t        reserved[2];
@@ -127,7 +122,6 @@ struct hdr_waodv_reply {
         double	        rp_lifetime;            // Lifetime
 
         double          rp_timestamp;           // when corresponding REQ sent;
-        nr_trust		*nrlist;
         WAODV_Neighbor  *nb;
 						// used to compute route discovery latency
 						
