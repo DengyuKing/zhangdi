@@ -71,12 +71,10 @@ class WAODV_Neighbor {
         trust_info.trust=1;
         trust_info.d_trust=0.5;
         trust_info.in_trust=0.5;
-        nb=NULL;
         }
         nsaddr_t getnbaddr();
         struct trust_info trust_info;
         struct qos_info qos_info;
-        WAODV_Neighbor *nb;
         int count;
         float time;
 
